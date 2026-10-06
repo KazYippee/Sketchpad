@@ -10,6 +10,7 @@ var filter: Texture2D
 
 var _last_pos: Vector2
 var _has_last = false
+var _undo_version := -1
 
 
 func _ready() -> void:
@@ -17,12 +18,17 @@ func _ready() -> void:
 
 
 func on_pointer_down(_position: Vector2, _canvas: Canvas) -> void:
+	_canvas.save_undo_state()
+	_undo_version = _canvas.undo_version
 	_has_last = true
 	_last_pos = _position
 	_place_stamp(_last_pos, _canvas)
 
 
 func on_pointer_move(_position: Vector2, _canvas: Canvas) -> void:
+	if _canvas.undo_version != _undo_version:
+		_has_last = false
+		return
 	if filter == null or not _canvas._project or not _has_last:
 		return
 

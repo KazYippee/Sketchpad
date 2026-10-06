@@ -7,6 +7,7 @@ var dragging := false
 var _start_mouse := Vector2.ZERO
 var _drag_sprite: Sprite2D = null
 var _layer_image: Image = null
+var _undo_version := -1
 
 func _init() -> void:
 	name = "Dragger"
@@ -19,6 +20,8 @@ func on_pointer_down(_position: Vector2, _canvas: Canvas) -> void:
 	var page: Page = project.frames[project.current_frame]
 	var layer: Image = page.layers[project.current_layer]
 
+	_canvas.save_undo_state()
+	_undo_version = _canvas.undo_version
 	dragging = true
 	_start_mouse = _position
 	_layer_image = layer.duplicate()
@@ -38,12 +41,22 @@ func on_pointer_down(_position: Vector2, _canvas: Canvas) -> void:
 	_canvas.dynamic_node.add_child(_drag_sprite)
 
 func on_pointer_move(_position: Vector2, _canvas: Canvas) -> void:
+	if _canvas.undo_version != _undo_version:
+		dragging = false
+		_drag_sprite = null
+		_layer_image = null
+		return
 	if not dragging or not _drag_sprite:
 		return
 
 	_drag_sprite.position = _position - _start_mouse
 
 func on_pointer_up(position: Vector2, canvas: Canvas) -> void:
+	if canvas.undo_version != _undo_version:
+		dragging = false
+		_drag_sprite = null
+		_layer_image = null
+		return
 	if not dragging:
 		return
 

@@ -11,12 +11,15 @@ var stamp_tex: Texture2D
 var _stroke_node: Node2D
 var _last_pos: Vector2
 var _has_last = false
+var _undo_version := -1
 
 
 func _ready() -> void:
 	stamp_tex = generate_stamp()
 
 func on_pointer_down(_position: Vector2, _canvas: Canvas) -> void:
+	_canvas.save_undo_state()
+	_undo_version = _canvas.undo_version
 	_stroke_node = Node2D.new()
 	_canvas.dynamic_node.add_child(_stroke_node)
 	_has_last = true
@@ -25,6 +28,10 @@ func on_pointer_down(_position: Vector2, _canvas: Canvas) -> void:
 
 
 func on_pointer_move(_position: Vector2, _canvas: Canvas) -> void:
+	if _canvas.undo_version != _undo_version:
+		_stroke_node = null
+		_has_last = false
+		return
 	if not _stroke_node or not _canvas._project or not _has_last:
 		return
 
@@ -42,6 +49,9 @@ func on_pointer_move(_position: Vector2, _canvas: Canvas) -> void:
 
 func on_pointer_up(_position: Vector2, _canvas: Canvas) -> void:
 	_has_last = false
+	if _canvas.undo_version != _undo_version or not is_instance_valid(_stroke_node):
+		_stroke_node = null
+		return
 	_canvas.bake_page()
 
 
