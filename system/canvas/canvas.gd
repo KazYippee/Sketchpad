@@ -3,10 +3,14 @@ extends Node2D
 
 signal canvas_input(event: InputEventMouse)
 
+const UNDO_LIMIT := 20
+
 @export var camera_movable: bool = false
 @export var camera: Camera2D
 
+var undo_version := 0
 var _project: Project
+var _undo_entries: Array[Dictionary] = []
 
 @onready var control_node: Control = $Control
 @onready var layers_node: Node2D = $Control/Layers
@@ -26,6 +30,8 @@ func attach_project(project: Project) -> void:
 		_project.new_current_page.disconnect(render_page)
 
 	_project = project
+	_undo_entries.clear()
+	undo_version += 1
 
 	if _project:
 		_project.new_current_page.connect(render_page)
@@ -113,6 +119,57 @@ func bake_page() -> void:
 		node.queue_free()
 
 	_project.get_current_page()
+
+
+## Stores the current layer before a drawing gesture. Keeps at most 20 states.
+func save_undo_state() -> void:
+	if _project == null:
+		return
+	var frame_index := _project.current_frame
+	if frame_index < 0 or frame_index >= _project.frames.size():
+		return
+	var page := _project.frames[frame_index]
+	var layer_index := _project.current_layer
+	if layer_index < 0 or layer_index >= page.layers.size():
+		return
+
+	_undo_entries.append({
+		"frame": frame_index,
+		"layer": layer_index,
+		"image": page.layers[layer_index].duplicate(),
+	})
+	while _undo_entries.size() > UNDO_LIMIT:
+		_undo_entries.pop_front()
+
+
+## Restores the previous layer image. Switches back to that frame if needed.
+func undo() -> void:
+	if _undo_entries.is_empty() or _project == null:
+		return
+
+	var entry: Dictionary = _undo_entries.back()
+	var frame_index: int = entry["frame"]
+	var layer_index: int = entry["layer"]
+	var image: Image = entry["image"]
+	if frame_index < 0 or frame_index >= _project.frames.size():
+		return
+	var page: Page = _project.frames[frame_index]
+	if layer_index < 0 or layer_index >= page.layers.size():
+		return
+
+	_undo_entries.pop_back()
+	undo_version += 1
+	_clear_dynamic()
+	page.set_layer(layer_index, image)
+	_project.current_layer = layer_index
+	if _project.current_frame != frame_index:
+		_project.set_frame(frame_index)
+
+
+func _clear_dynamic() -> void:
+	for node in dynamic_node.get_children():
+		dynamic_node.remove_child(node)
+		node.queue_free()
 
 
 func _on_gui_input(event: InputEvent) -> void:

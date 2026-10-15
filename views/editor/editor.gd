@@ -64,3 +64,19 @@ func _handle_canvas_input(event: InputEvent) -> void:
 		elif event is InputEventMouseMotion:
 			if current_tool is Tool:
 				current_tool.on_pointer_move(canvas_pos, canvas)
+
+
+func _unhandled_input(event: InputEvent) -> void:
+	if canvas and _is_undo_shortcut(event):
+		canvas.undo()
+		get_viewport().set_input_as_handled()
+
+
+func _is_undo_shortcut(event: InputEvent) -> bool:
+	if not event is InputEventKey or not event.pressed or event.echo:
+		return false
+	if event.shift_pressed or event.alt_pressed:
+		return false
+	if not event.ctrl_pressed and not event.meta_pressed:
+		return false
+	return event.keycode == KEY_Z or event.physical_keycode == KEY_Z
